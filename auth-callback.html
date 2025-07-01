@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Finishing Login…</title>
+</head>
+<body>
+  <h1>Finishing login…</h1>
+  <script type="module">
+    import { createClient } from 'https://esm.sh/@supabase/supabase-js'
+
+    // --- CONFIGURE THIS ---
+    const SUPABASE_URL = 'https://pqheugqatduidilstxal.supabase.co'
+    const SUPABASE_ANON = 'your-anon-key'
+
+    const supabase = createClient(SUPABASE_URL, SUPABASE_ANON)
+
+    async function finishLogin() {
+      // 1) Let Supabase auth parse the fragment
+      const { data: { session }, error } = await supabase.auth.getSessionFromUrl({ storeSession: false })
+      if (error || !session) {
+        document.body.innerHTML = '<p style="color:red">Login failed – please try again.</p>'
+        console.error(error)
+        return
+      }
+
+      // 2) Write the session into a table for your plugin to pick up
+      //    You'll need a table `plugin_sessions` with columns (email text, access_token text, refresh_token text)
+      await supabase
+        .from('plugin_sessions')
+        .upsert({ 
+          email: session.user.email, 
+          access_token: session.access_token,
+          refresh_token: session.refresh_token 
+        }, { onConflict: ['email'] })
+
+      // 3) Let the user know they can return to Figma
+      document.body.innerHTML = `
+        <h1>Logged in!</h1>
+        <p>Return to Figma to continue using the plugin.</p>
+      `
+    }
+
+    finishLogin()
+  </script>
+</body>
+</html>
