@@ -7,39 +7,53 @@
 <body>
   <h1>Finishing login…</h1>
   <script type="module">
-    import { createClient } from 'https://esm.sh/@supabase/supabase-js'
-    const SUPABASE_URL = 'https://pqheugqatduidilstxal.supabase.co'
-    const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBxaGV1Z3FhdGR1aWRpbHN0eGFsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTA5NTM0MjYsImV4cCI6MjA2NjUyOTQyNn0.YhdKsXJSnNJwlbAhX8cpZBG50nbmJDwjaNkd4Sn4A9M'
+    import { createClient } from 'https://esm.sh/@supabase/supabase-js';
 
-    const supabase = createClient(SUPABASE_URL, SUPABASE_ANON)
+    const SUPABASE_URL = 'https://pqheugqatduidilstxal.supabase.co';
+    const SUPABASE_ANON = 'your-anon-key';
+    const supabase = createClient(SUPABASE_URL, SUPABASE_ANON);
 
     async function finishLogin() {
-      // 1) Let Supabase auth parse the fragment
-      const { data: { session }, error } = await supabase.auth.getSessionFromUrl({ storeSession: false })
-      if (error || !session) {
-        document.body.innerHTML = '<p style="color:red">Login failed – please try again.</p>'
-        console.error(error)
-        return
+      // 1) Grab everything after the '#'
+      const hash = window.location.hash.substring(1);
+      const params = new URLSearchParams(hash);
+      const access_token  = params.get('access_token');
+      const refresh_token = params.get('refresh_token');
+
+      if (!access_token || !refresh_token) {
+        document.body.innerHTML = '<p style="color:red">Login failed — invalid URL.</p>';
+        return;
       }
 
-      // 2) Write the session into a table for your plugin to pick up
-      //    You'll need a table `plugin_sessions` with columns (email text, access_token text, refresh_token text)
-      await supabase
-        .from('plugin_sessions')
-        .upsert({ 
-          email: session.user.email, 
-          access_token: session.access_token,
-          refresh_token: session.refresh_token 
-        }, { onConflict: ['email'] })
+      // 2) Decode the JWT to extract the user email
+      //    (we trust the token payload for email)
+      const payload = JSON.parse(atob(access_token.split('.')[1]));
+      const email = payload.email;
+      if (!email) {
+        document.body.innerHTML = '<p style="color:red">Login failed — no email in token.</p>';
+        return;
+      }
 
-      // 3) Let the user know they can return to Figma
+      // 3) Upsert into plugin_sessions table
+      const { error } = await supabase
+        .from('plugin_sessions')
+        .upsert(
+          { email, access_token, refresh_token },
+          { onConflict: ['email'] }
+        );
+      if (error) {
+        document.body.innerHTML = `<p style="color:red">DB error: ${error.message}</p>`;
+        return;
+      }
+
+      // 4) Success!
       document.body.innerHTML = `
         <h1>Logged in!</h1>
         <p>Return to Figma to continue using the plugin.</p>
-      `
+      `;
     }
 
-    finishLogin()
+    finishLogin();
   </script>
 </body>
 </html>
