@@ -1,56 +1,41 @@
 <!DOCTYPE html>
 <html>
-<head>
-  <meta charset="utf-8">
-  <title>Finishing Login…</title>
-</head>
+<head><meta charset="utf-8"><title>Finishing Login…</title></head>
 <body>
   <h1>Finishing login…</h1>
   <script type="module">
     import { createClient } from 'https://esm.sh/@supabase/supabase-js';
-
-    const SUPABASE_URL = 'https://pqheugqatduidilstxal.supabase.co';
-    const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBxaGV1Z3FhdGR1aWRpbHN0eGFsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTA5NTM0MjYsImV4cCI6MjA2NjUyOTQyNn0.YhdKsXJSnNJwlbAhX8cpZBG50nbmJDwjaNkd4Sn4A9M';
-    const supabase = createClient(SUPABASE_URL, SUPABASE_ANON);
+    const URL = 'https://pqheugqatduidilstxal.supabase.co';
+    const KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBxaGV1Z3FhdGR1aWRpbHN0eGFsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTA5NTM0MjYsImV4cCI6MjA2NjUyOTQyNn0.YhdKsXJSnNJwlbAhX8cpZBG50nbmJDwjaNkd4Sn4A9M';
+    const supabase = createClient(URL, KEY);
 
     async function finishLogin() {
-      // 1) Grab everything after the '#'
-      const hash = window.location.hash.substring(1);
+      // parse URL fragment
+      const hash = window.location.hash.slice(1);
       const params = new URLSearchParams(hash);
       const access_token  = params.get('access_token');
       const refresh_token = params.get('refresh_token');
-
       if (!access_token || !refresh_token) {
-        document.body.innerHTML = '<p style="color:red">Login failed — invalid URL.</p>';
+        document.body.innerHTML = '<p style="color:red">Login failed.</p>';
         return;
       }
-
-      // 2) Decode the JWT to extract the user email
-      //    (we trust the token payload for email)
+      // decode email from JWT
       const payload = JSON.parse(atob(access_token.split('.')[1]));
       const email = payload.email;
-      if (!email) {
-        document.body.innerHTML = '<p style="color:red">Login failed — no email in token.</p>';
-        return;
-      }
-
-      // 3) Upsert into plugin_sessions table
+      // upsert session
       const { error } = await supabase
         .from('plugin_sessions')
-        .upsert(
-          { email, access_token, refresh_token },
-          { onConflict: ['email'] }
-        );
+        .upsert({ email, access_token, refresh_token }, { onConflict: ['email'] });
       if (error) {
         document.body.innerHTML = `<p style="color:red">DB error: ${error.message}</p>`;
         return;
       }
-
-      // 4) Success!
       document.body.innerHTML = `
         <h1>Logged in!</h1>
-        <p>Return to Figma to continue using the plugin.</p>
+        <p>Return to Figma to continue.</p>
       `;
+      // optionally close window:
+      setTimeout(() => window.close(), 1500);
     }
 
     finishLogin();
